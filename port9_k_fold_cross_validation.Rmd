@@ -1,0 +1,161 @@
+---
+title: "port9"
+author: "Yoo Ri Hwang"
+date: "4/19/2022"
+output: github_document
+---
+
+# overview 
+
+K fold cross validation.
+
+cross validation: resampling agian and agian to evaluate models (especially machine laerning models) 
+K: given data is splited into "k" group
+
+More specifically, the data is splited into training set Vs. test set.
+In other words, it is splited and each splited data would be either exploration data or confiramiton data. 
+
+# practice
+## load packages 
+```{r}
+
+library(psych)  
+library(tidyverse)  
+library(car)
+
+```
+## load data
+```{r}
+filepath <- "https://quantdev.ssri.psu.edu/sites/qdev/files/apexpos.csv"
+dat <- read.csv(file=url(filepath),header=TRUE)
+
+summary(dat)
+
+```
+
+## Predicted model 1
+
+yi = beta0*1 + beta1*xi
+
+```{r}
+
+lm <- lm(fsiq7 ~ 1 + apexpos , data=dat, na.action=na.exclude)
+summary(lm)
+
+```
+
+## predicted model 2
+
+yi = beta0 *1 + beta1*xi + beta2*xi^2 + ei
+
+it is quadratic model. 
+
+```{r}
+
+dat$apexpos_sq <- dat$apexpos^2
+
+lm2 <- lm(fsiq7 ~ 1 + apexpos + apexpos_sq, data=dat, na.action=na.exclude)
+summary(lm2)
+
+```
+
+# K-fold cross vailidation ( I will choose 10 fold)
+
+
+
+```{r}
+
+# shuffling data
+dat.shuffled<-dat[sample(nrow(dat)),]
+
+# set k
+k<-10
+
+# creat k folds-- equal size each
+
+folds<-cut(seq(1,nrow(dat.shuffled)),breaks=k, labels =F)
+folds
+
+```
+
+
+```{r}
+
+order <- 2 # we only have two models, with one is not quadric, and one is quadric.
+k<-10
+
+```
+
+
+
+### practice nested for function and unfamiliar function
+
+```{R}
+
+# nested for
+for (k in 1:10){
+  
+  for(i in 1:3){
+    print(paste("k=",k,"i=",i)) 
+  }
+  
+  
+}
+
+
+  #which()
+  
+  which(dat$id==10)
+```
+
+```{r}
+
+# create an empty holder
+
+k<-10
+order<-2
+r.square<- matrix(,nrow=k,ncol=order)
+
+# k-fold validation 
+for (i in 1:k){
+  
+  # sgmnent data by which function, and i would be 1, 2, 3, ...10 
+  testIndexes<- which(folds==i, arr.ind=T)
+  testData <- dat.shuffled[testIndexes,] # this will test data set
+  trainData <- dat.shuffled[-testIndexes,] # except the test dataset, it will be training data set
+  
+   for ( j in 1:order){
+     fit.train = lm(fsiq7 ~ poly(apexpos,j), data=trainData)
+      fit.test = predict(fit.train, newdata = testData)
+      r.square[i,j] = cor(fit.test, testData$fsiq7, use='complete')^2
+   }
+}
+
+#Averinging fit at each order
+
+fits.kfold<-colMeans(r.square)
+plot(colMeans(r.square),type='l') # l for lines 
+
+
+```
+
+Based on this graph, 1 is beter than 2 (quadric model)
+
+
+## Apply this to new data
+
+### load new data 
+
+```{r}
+
+filepath <- "https://quantdev.ssri.psu.edu/sites/qdev/files/apexpos_test.csv"
+dat.test <- read.csv(file=url(filepath),header=TRUE)
+
+```
+
+```{r}
+
+newdata.predict<-predict(lm, newdata=dat.test)
+cor(dat.test$fsiq7, newdata.predict)^2
+
+```
